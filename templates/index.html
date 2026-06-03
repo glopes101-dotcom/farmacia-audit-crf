@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Farmácia Audit CRF{% endblock %}
+
+{% block content %}
+<div class="escudo-crf" id="escudoCRF">
+    <h2>🛡️ ESCUDO CRF</h2>
+    <div class="conformidade-bar">
+        <div class="conformidade-progress" style="width: {{ conformidade }}%; background: linear-gradient(90deg, 
+            {% if conformidade < 50 %}#FF4444 0%, #FF4444 100%
+            {% elif conformidade < 80 %}#FF4444 0%, #FFD700 50%, #FFD700 100%
+            {% else %}#FFD700 0%, #00FF00 100%
+            {% endif %});">
+            {{ conformidade }}%
+        </div>
+    </div>
+    <div class="status-message" id="statusMessage">
+        {{ status_escudo.icon }} {{ status_escudo.mensagem }}
+    </div>
+</div>
+
+<div class="grid">
+    <!-- CARD: DOCUMENTOS -->
+    <div class="card">
+        <h3>📄 Documentos Registrados</h3>
+        <div style="font-size: 2.5rem; color: #00FF00; text-align: center; margin: 1rem 0;">
+            {{ total_documentos }}
+        </div>
+        <div style="text-align: center;">
+            <a href="{{ url_for('docs') }}" class="btn btn-primary">Ver Documentação</a>
+        </div>
+    </div>
+
+    <!-- CARD: ALERTAS CRÍTICOS -->
+    <div class="card">
+        <h3>🚨 Alertas Críticos</h3>
+        <div style="font-size: 2.5rem; {% if alertas.total_alertas > 0 %}color: #FF4444{% else %}color: #00FF00{% endif %}; text-align: center; margin: 1rem 0;">
+            {{ alertas.total_alertas }}
+        </div>
+        <div style="text-align: center;">
+            {% if alertas.vencidos %}
+                <p class="badge badge-danger">❌ {{ alertas.vencidos | length }} Vencido(s)</p>
+            {% endif %}
+            {% if alertas.proximos %}
+                <p class="badge badge-warning">⚠️ {{ alertas.proximos | length }} Próximo(s) de vencer</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- CARD: CONFORMIDADE RÁPIDA -->
+    <div class="card">
+        <h3>✅ Status Geral</h3>
+        <div style="text-align: center;">
+            {% if status_escudo.status == 'seguro' %}
+                <p class="badge badge-success">🛡️ SEGURO</p>
+                <p style="margin-top: 0.5rem; color: #00FF00;">Farmácia em conformidade!</p>
+            {% elif status_escudo.status == 'atencao' %}
+                <p class="badge badge-warning">⚠️ ATENÇÃO</p>
+                <p style="margin-top: 0.5rem; color: #FFD700;">Verifique os documentos com vencimento próximo.</p>
+            {% else %}
+                <p class="badge badge-danger">🚨 RISCO</p>
+                <p style="margin-top: 0.5rem; color: #FF4444;">Ação imediata necessária!</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- RESUMO DE DOCUMENTOS COM ALERTAS -->
+{% if alertas.vencidos or alertas.proximos %}
+<div class="card" style="margin-top: 2rem;">
+    <h3>⚡ Ações Necessárias</h3>
+    
+    {% if alertas.vencidos %}
+    <div class="alert alert-danger">
+        <strong>❌ {{ alertas.vencidos | length }} Documento(s) Vencido(s):</strong>
+        <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+            {% for doc in alertas.vencidos %}
+                <li>{{ doc.icon_status }} {{ doc.nome }} - Vencido em {{ doc.data_vencimento }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    
+    {% if alertas.proximos %}
+    <div class="alert alert-warning">
+        <strong>⚠️ {{ alertas.proximos | length }} Documento(s) com Vencimento Próximo (30 dias):</strong>
+        <ul style="margin-top: 0.5rem; margin-left: 1.5rem;">
+            {% for doc in alertas.proximos %}
+                <li>{{ doc.icon_status }} {{ doc.nome }} - Vence em {{ doc.data_vencimento }} ({{ doc.dias_para_vencer }} dias)</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+    // Atualizar conformidade em tempo real (a cada 5 segundos)
+    setInterval(function() {
+        fetch('/api/conformidade')
+            .then(response => response.json())
+            .then(data => {
+                const conformidade = data.conformidade;
+                const progressBar = document.querySelector('.conformidade-progress');
+                const statusMsg = document.getElementById('statusMessage');
+                
+                progressBar.style.width = conformidade + '%';
+                statusMsg.innerHTML = data.status_escudo.icon + ' ' + data.status_escudo.mensagem;
+                
+                // Animar mudança
+                document.getElementById('escudoCRF').classList.add('slide-in');
+            })
+            .catch(err => console.error('Erro ao atualizar conformidade:', err));
+    }, 5000);
+</script>
+{% endblock %}
